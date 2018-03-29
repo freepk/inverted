@@ -1,1 +1,1 @@
-# inverted
+# Inverted index
