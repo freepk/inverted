@@ -26,7 +26,6 @@ func (i *iceberg) visible() bool {
 	return len(i.top) == len(i.body)
 }
 
-// TODO: make sorting in backgound with separate schedule logic
 func (i *iceberg) show() {
 	if i.visible() {
 		return
