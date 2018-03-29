@@ -27,8 +27,9 @@ func (a *sortedArray) union() {
 	}
 	buff := make([]int, (bs + ts))
 	radix.Ints(a.tail, buff, ts)
+	buff = buff[:0]
 	prev, curr := 0, 0
-	i, j, k := 0, 0, 0
+	i, j := 0, 0
 	for i < bs && j < ts {
 		switch {
 		case a.body[i] < a.tail[j]:
@@ -44,8 +45,7 @@ func (a *sortedArray) union() {
 		}
 		if prev != curr {
 			prev = curr
-			buff[k] = curr
-			k++
+			buff = append(buff, curr)
 		}
 	}
 	for i < bs {
@@ -53,8 +53,7 @@ func (a *sortedArray) union() {
 		i++
 		if prev != curr {
 			prev = curr
-			buff[k] = curr
-			k++
+			buff = append(buff, curr)
 		}
 	}
 	for j < ts {
@@ -62,11 +61,10 @@ func (a *sortedArray) union() {
 		j++
 		if prev != curr {
 			prev = curr
-			buff[k] = curr
-			k++
+			buff = append(buff, curr)
 		}
 	}
-	a.body = buff[:k]
+	a.body = buff
 	a.tail = a.tail[:0]
 }
 
@@ -83,7 +81,8 @@ func (a *sortedArray) items() []int {
 }
 
 type Index struct {
-	tags map[int]*sortedArray
+	tags    map[int]*sortedArray
+	trashed int
 }
 
 func NewIndex() *Index {
