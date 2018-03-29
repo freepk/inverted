@@ -19,10 +19,10 @@ func testIndex(keys, maxKey, tags, maxTag int) *Index {
 }
 
 func TestIndex(t *testing.T) {
-	index := testIndex(10, 200000, 10, 10)
-	tags := index.Tags()
-	for _, tag := range tags {
-		keys := index.ByTag(tag)
+	index := testIndex(1000000, 20000000, 40, 44000)
+	tokens := index.Tokens()
+	for _, token := range tokens {
+		keys := index.ByToken(token)
 		if !sort.IntsAreSorted(keys) {
 			t.Fail()
 		}
