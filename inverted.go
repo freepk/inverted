@@ -1,6 +1,9 @@
 package inverted
 
 import (
+	"encoding/gob"
+	"io"
+	"os"
 	"sync"
 
 	"github.com/freepk/radix"
@@ -15,8 +18,10 @@ type iceberg struct {
 	body []int
 }
 
-func newIceberg() *iceberg {
-	body := make([]int, 0, smallIcebergSize)
+func newIceberg(body []int) *iceberg {
+	if body == nil {
+		body = make([]int, 0, smallIcebergSize)
+	}
 	return &iceberg{
 		top:  body,
 		body: body}
@@ -56,7 +61,7 @@ func NewIndex() *Index {
 func (x *Index) Append(key, token int) {
 	list, ok := x.tokens.Load(token)
 	if !ok {
-		list = newIceberg()
+		list = newIceberg(nil)
 		x.tokens.Store(token, list)
 	}
 	list.(*iceberg).append(key)
@@ -77,4 +82,50 @@ func (x *Index) ByToken(token int) []int {
 		return []int{}
 	}
 	return list.(*iceberg).items()
+}
+
+func (x *Index) Dump(path string) error {
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	enc := gob.NewEncoder(file)
+	x.tokens.Range(func(k, v interface{}) bool {
+		token := k.(int)
+		items := v.(*iceberg).items()
+		enc.Encode(token)
+		enc.Encode(items)
+		return true
+	})
+	return nil
+}
+
+func (x *Index) Restore(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	tokens := &sync.Map{}
+	token := 0
+	items := make([]int, 0)
+	dec := gob.NewDecoder(file)
+	for {
+		err = dec.Decode(&token)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		err = dec.Decode(&items)
+		if err != nil {
+			return err
+		}
+		list := newIceberg(items)
+		tokens.Store(token, list)
+	}
+	x.tokens = tokens
+	return nil
 }
