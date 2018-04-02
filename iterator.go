@@ -2,11 +2,16 @@ package inverted
 
 type Iterator interface {
 	Next() (int, bool)
+	Reset()
 }
 
 type ArrayIterator struct {
 	array  []int
 	offset int
+}
+
+func NewArrayIterator(array []int) *ArrayIterator {
+	return &ArrayIterator{array: array, offset: 0}
 }
 
 func (it *ArrayIterator) Next() (int, bool) {
@@ -18,8 +23,16 @@ func (it *ArrayIterator) Next() (int, bool) {
 	return 0, false
 }
 
+func (it *ArrayIterator) Reset() {
+	it.offset = 0
+}
+
 type IntersectIterator struct {
 	array []Iterator
+}
+
+func NewIntersectIterator(array []Iterator) *IntersectIterator {
+	return &IntersectIterator{array: array}
 }
 
 func (it *IntersectIterator) Next() (int, bool) {
@@ -65,4 +78,11 @@ func (it *IntersectIterator) Next() (int, bool) {
 		}
 	}
 	return 0, false
+}
+
+func (it *IntersectIterator) Reset() {
+	size := len(it.array)
+	for i := 0; i < size; i++ {
+		it.array[i].Reset()
+	}
 }
