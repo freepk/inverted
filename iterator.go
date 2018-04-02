@@ -29,11 +29,13 @@ func (it *ArrayIterator) Reset() {
 
 type IntersectIterator struct {
 	array  []Iterator
-	values [256]int
+	values []int
 }
 
 func NewIntersectIterator(array []Iterator) *IntersectIterator {
-	return &IntersectIterator{array: array}
+	return &IntersectIterator{
+		array:  array,
+		values: make([]int, len(array))}
 }
 
 func (it *IntersectIterator) Next() (int, bool) {
