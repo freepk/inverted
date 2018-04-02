@@ -1,55 +1,62 @@
 package inverted
 
 type Iterator interface {
-	Next() (int, bool)
 	Reset()
+	Next() (int, bool)
 }
 
 type ArrayIterator struct {
-	array  []int
+	items  []int
 	offset int
 }
 
-func NewArrayIterator(array []int) *ArrayIterator {
-	return &ArrayIterator{array: array, offset: 0}
-}
-
-func (it *ArrayIterator) Next() (int, bool) {
-	if it.offset < len(it.array) {
-		offset := it.offset
-		it.offset++
-		return it.array[offset], true
-	}
-	return 0, false
+func NewArrayIterator(items []int) *ArrayIterator {
+	return &ArrayIterator{items: items, offset: 0}
 }
 
 func (it *ArrayIterator) Reset() {
 	it.offset = 0
 }
 
-type IntersectIterator struct {
-	array  []Iterator
-	values []int
+func (it *ArrayIterator) Next() (int, bool) {
+	if it.offset < len(it.items) {
+		offset := it.offset
+		it.offset++
+		return it.items[offset], true
+	}
+	return 0, false
 }
 
-func NewIntersectIterator(array []Iterator) *IntersectIterator {
+type IntersectIterator struct {
+	iterators []Iterator
+	values    []int
+}
+
+func NewIntersectIterator(iterators []Iterator) *IntersectIterator {
 	return &IntersectIterator{
-		array:  array,
-		values: make([]int, len(array))}
+		iterators: iterators,
+		values:    make([]int, len(iterators))}
+}
+
+func (it *IntersectIterator) Reset() {
+	size := len(it.iterators)
+	for i := 0; i < size; i++ {
+		it.iterators[i].Reset()
+	}
 }
 
 func (it *IntersectIterator) Next() (int, bool) {
-	size := len(it.array)
+	size := len(it.iterators)
 	if size == 0 {
 		return 0, false
 	}
 	if size == 1 {
-		return it.array[0].Next()
+		return it.iterators[0].Next()
 	}
 	ok := false
 	advice := 0
 	for i := 0; i < size; i++ {
-		it.values[i], ok = it.array[i].Next()
+		it.values[i], ok = it.iterators[i].Next()
 		if !ok {
 			return 0, false
 		}
@@ -63,7 +70,7 @@ func (it *IntersectIterator) Next() (int, bool) {
 				continue
 			}
 			for it.values[i] < advice {
-				it.values[i], ok = it.array[i].Next()
+				it.values[i], ok = it.iterators[i].Next()
 				if !ok {
 					return 0, false
 				}
@@ -80,11 +87,4 @@ func (it *IntersectIterator) Next() (int, bool) {
 		}
 	}
 	return 0, false
-}
-
-func (it *IntersectIterator) Reset() {
-	size := len(it.array)
-	for i := 0; i < size; i++ {
-		it.array[i].Reset()
-	}
 }
