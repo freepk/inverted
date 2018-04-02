@@ -28,7 +28,8 @@ func (it *ArrayIterator) Reset() {
 }
 
 type IntersectIterator struct {
-	array []Iterator
+	array  []Iterator
+	values [256]int
 }
 
 func NewIntersectIterator(array []Iterator) *IntersectIterator {
@@ -36,7 +37,6 @@ func NewIntersectIterator(array []Iterator) *IntersectIterator {
 }
 
 func (it *IntersectIterator) Next() (int, bool) {
-	var values [32]int
 	size := len(it.array)
 	if size == 0 {
 		return 0, false
@@ -47,21 +47,21 @@ func (it *IntersectIterator) Next() (int, bool) {
 	ok := false
 	advice := 0
 	for i := 0; i < size; i++ {
-		values[i], ok = it.array[i].Next()
+		it.values[i], ok = it.array[i].Next()
 		if !ok {
 			return 0, false
 		}
-		if i == 0 || advice < values[i] {
-			advice = values[i]
+		if i == 0 || advice < it.values[i] {
+			advice = it.values[i]
 		}
 	}
 	for {
 		for i := 0; i < size; i++ {
-			if values[i] == advice {
+			if it.values[i] == advice {
 				continue
 			}
-			for values[i] < advice {
-				values[i], ok = it.array[i].Next()
+			for it.values[i] < advice {
+				it.values[i], ok = it.array[i].Next()
 				if !ok {
 					return 0, false
 				}
@@ -69,7 +69,7 @@ func (it *IntersectIterator) Next() (int, bool) {
 		}
 		equals := 0
 		for i := 0; i < size; i++ {
-			if values[i] == advice {
+			if it.values[i] == advice {
 				equals++
 			}
 		}
