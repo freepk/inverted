@@ -76,12 +76,12 @@ func (x *Index) Tokens() []int {
 	return tokens
 }
 
-func (x *Index) ByToken(token int) []int {
+func (x *Index) Vector(token int) *ArrayIterator {
 	list, ok := x.tokens.Load(token)
 	if !ok {
-		return []int{}
+		return NewArrayIterator([]int{})
 	}
-	return list.(*iceberg).items()
+	return NewArrayIterator(list.(*iceberg).items())
 }
 
 func (x *Index) Dump(path string) error {
