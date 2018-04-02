@@ -36,6 +36,7 @@ func NewIntersectIterator(array []Iterator) *IntersectIterator {
 }
 
 func (it *IntersectIterator) Next() (int, bool) {
+	var values [32]int
 	size := len(it.array)
 	if size == 0 {
 		return 0, false
@@ -45,7 +46,6 @@ func (it *IntersectIterator) Next() (int, bool) {
 	}
 	ok := false
 	advice := 0
-	values := make([]int, size)
 	for i := 0; i < size; i++ {
 		values[i], ok = it.array[i].Next()
 		if !ok {
