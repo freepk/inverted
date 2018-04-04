@@ -6,7 +6,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/freepk/iterator"
 	"github.com/freepk/radix"
 )
 
@@ -77,12 +76,12 @@ func (x *Index) Tokens() []int {
 	return tokens
 }
 
-func (x *Index) Vector(token int) *iterator.ArrayIterator {
+func (x *Index) Vector(token int) []int {
 	list, ok := x.tokens.Load(token)
 	if !ok {
-		return iterator.NewArrayIterator([]int{})
+		return []int{}
 	}
-	return iterator.NewArrayIterator(list.(*iceberg).items())
+	return list.(*iceberg).items()
 }
 
 func (x *Index) Dump(path string) error {
