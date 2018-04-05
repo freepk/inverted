@@ -4,8 +4,8 @@ import (
 	"encoding/gob"
 	"io"
 	"os"
-	"sync"
 
+	"github.com/freepk/iterator"
 	"github.com/freepk/radix"
 )
 
@@ -51,37 +51,39 @@ func (i *iceberg) items() []int {
 }
 
 type Index struct {
-	tokens *sync.Map
+	tokens map[int]*iceberg
 }
 
 func NewIndex() *Index {
-	return &Index{tokens: &sync.Map{}}
+	return &Index{tokens: make(map[int]*iceberg)}
 }
 
-func (x *Index) Append(key, token int) {
-	list, ok := x.tokens.Load(token)
-	if !ok {
-		list = newIceberg(nil)
-		x.tokens.Store(token, list)
+func (x *Index) Append(key int, tokens []int) {
+	size := len(tokens)
+	for i := 0; i < size; i++ {
+		items, ok := x.tokens[tokens[i]]
+		if !ok {
+			items = newIceberg([]int{})
+			x.tokens[tokens[i]] = items
+		}
+		items.append(key)
 	}
-	list.(*iceberg).append(key)
 }
 
-func (x *Index) Tokens() []int {
-	tokens := make([]int, 0)
-	x.tokens.Range(func(k, v interface{}) bool {
-		tokens = append(tokens, k.(int))
-		return true
-	})
-	return tokens
-}
-
-func (x *Index) Vector(token int) []int {
-	list, ok := x.tokens.Load(token)
+func (x *Index) Items(token int) *iterator.ArrayIterator {
+	items, ok := x.tokens[token]
 	if !ok {
-		return []int{}
+		return iterator.NewArrayIterator([]int{})
 	}
-	return list.(*iceberg).items()
+	return iterator.NewArrayIterator(items.items())
+}
+
+func (x *Index) Tokens() *iterator.ArrayIterator {
+	tokens := make([]int, 0, len(x.tokens))
+	for token := range x.tokens {
+		tokens = append(tokens, token)
+	}
+	return iterator.NewArrayIterator(tokens)
 }
 
 func (x *Index) Dump(path string) error {
@@ -91,13 +93,16 @@ func (x *Index) Dump(path string) error {
 	}
 	defer file.Close()
 	enc := gob.NewEncoder(file)
-	x.tokens.Range(func(k, v interface{}) bool {
-		token := k.(int)
-		items := v.(*iceberg).items()
-		enc.Encode(token)
-		enc.Encode(items)
-		return true
-	})
+	for token, items := range x.tokens {
+		err = enc.Encode(token)
+		if err != nil {
+			return err
+		}
+		err = enc.Encode(items.items())
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -107,24 +112,23 @@ func (x *Index) Restore(path string) error {
 		return err
 	}
 	defer file.Close()
-	tokens := &sync.Map{}
-	token := 0
-	items := make([]int, 0)
 	dec := gob.NewDecoder(file)
+	tokens := make(map[int]*iceberg)
 	for {
+		token := 0
+		items := []int{}
 		err = dec.Decode(&token)
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
-			if err == io.EOF {
-				break
-			}
 			return err
 		}
 		err = dec.Decode(&items)
 		if err != nil {
 			return err
 		}
-		list := newIceberg(items)
-		tokens.Store(token, list)
+		tokens[token] = newIceberg(items)
 	}
 	x.tokens = tokens
 	return nil
