@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/freepk/iterator"
 	"github.com/freepk/radix"
 )
 
@@ -70,20 +69,20 @@ func (x *Index) Append(key int, tokens []int) {
 	}
 }
 
-func (x *Index) Items(token int) *iterator.ArrayIterator {
+func (x *Index) Items(token int) []int {
 	items, ok := x.tokens[token]
 	if !ok {
-		return iterator.NewArrayIterator([]int{})
+		return []int{}
 	}
-	return iterator.NewArrayIterator(items.items())
+	return items.items()
 }
 
-func (x *Index) Tokens() *iterator.ArrayIterator {
+func (x *Index) Tokens() []int {
 	tokens := make([]int, 0, len(x.tokens))
 	for token := range x.tokens {
 		tokens = append(tokens, token)
 	}
-	return iterator.NewArrayIterator(tokens)
+	return tokens
 }
 
 func (x *Index) Dump(path string) error {
