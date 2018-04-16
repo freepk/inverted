@@ -1,74 +1,49 @@
 package inverted
 
 import (
-	"sort"
 	"testing"
 
-	"github.com/freepk/iterator"
+	"github.com/freepk/arrays"
 )
 
-func readAll(it iterator.Iterator) []int {
-	a := make([]int, 0)
-	for {
-		v, ok := it.Next()
-		if !ok {
-			break
-		}
-		a = append(a, v)
+func TestUpdate(t *testing.T) {
+	index := NewIndex()
+	index.Append(300, []int{1000, 3000, 2000})
+	index.Append(200, []int{1000, 2000, 3000})
+	index.Append(400, []int{1000, 3000, 2000})
+	index.Append(100, []int{2000, 3000, 1000})
+	index.update()
+	if !arrays.IsEqual(index.Item(100), []int{1000, 2000, 3000}) {
+		t.Fail()
 	}
-	return a
-}
-
-func iteratorsEqual(a, b iterator.Iterator) bool {
-	for {
-		av, aok := a.Next()
-		bv, bok := b.Next()
-		if aok != bok {
-			return false
-		}
-		if av != bv {
-			return false
-		}
-		if !aok {
-			break
-		}
+	if !arrays.IsEqual(index.Items(1000), []int{100, 200, 300, 400}) {
+		t.Fail()
 	}
-	return true
-}
-
-func indexesEqual(a, b *Index) bool {
-	atokens := readAll(a.Tokens())
-	btokens := readAll(b.Tokens())
-	size := len(atokens)
-	if size != len(btokens) {
-		return false
+	index.Append(300, []int{1000, 2000, 2000, 2000, 3000, 4000})
+	index.Append(200, []int{4000, 1000, 2000, 1000, 2000, 3000, 6000})
+	index.Append(200, []int{1000, 6000, 2000, 3000})
+	index.update()
+	if !arrays.IsEqual(index.Item(200), []int{1000, 2000, 3000, 6000}) {
+		t.Fail()
 	}
-	sort.Ints(atokens)
-	sort.Ints(btokens)
-	for i := 0; i < size; i++ {
-		atoken, btoken := atokens[i], btokens[i]
-		if atoken != btoken {
-			return false
-		}
-		if !iteratorsEqual(a.Items(atokens[i]), b.Items(btokens[i])) {
-			return false
-		}
+	if !arrays.IsEqual(index.Item(300), []int{1000, 2000, 3000, 4000}) {
+		t.Fail()
 	}
-	return true
-}
-
-func TestIndex(t *testing.T) {
-	x := NewIndex()
-	x.Append(2000, []int{})
-	x.Append(2002, []int{300, 555})
-	x.Append(3001, []int{300})
-	x.Append(2000, []int{})
-	x.Append(4002, []int{100, 300})
-	x.Append(1001, []int{300})
-	x.Dump("test.dump")
-	y := NewIndex()
-	y.Restore("test.dump")
-	if !indexesEqual(x, y) {
+	if !arrays.IsEqual(index.Items(4000), []int{300}) {
+		t.Fail()
+	}
+	if !arrays.IsEqual(index.Items(6000), []int{200}) {
+		t.Fail()
+	}
+	index.Append(300, []int{4000, 1000, 1000, 1000, 5000})
+	index.update()
+	if !arrays.IsEqual(index.Item(300), []int{1000, 4000, 5000}) {
+		t.Fail()
+	}
+	if !arrays.IsEqual(index.Items(2000), []int{100, 200, 400}) {
+		t.Fail()
+	}
+	if !arrays.IsEqual(index.Items(5000), []int{300}) {
 		t.Fail()
 	}
 }
