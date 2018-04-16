@@ -32,40 +32,40 @@ func (i *Index) Docs(token int) []int {
 }
 
 func (i *Index) Update() {
-	del := make(map[int][]int)
-	ins := make(map[int][]int)
 	docTokens := i.newDocTokens
 	i.newDocTokens = make(map[int][]int)
+	remove := make(map[int][]int)
+	insert := make(map[int][]int)
 	for key, tokens := range docTokens {
 		sort.Ints(tokens)
 		tokens = arrays.Distinct(tokens)
 		docTokens[key] = tokens
 		temp := i.docTokens[key]
 		i := 0
-		j := 0
-		for (i < len(tokens)) && (j < len(temp)) {
+		r := 0
+		for (i < len(tokens)) && (r < len(temp)) {
 			switch {
-			case temp[j] < tokens[i]:
-				token := temp[j]
-				del[token] = append(del[token], key)
-				j++
-			case temp[j] > tokens[i]:
+			case temp[r] < tokens[i]:
+				token := temp[r]
+				remove[token] = append(remove[token], key)
+				r++
+			case temp[r] > tokens[i]:
 				token := tokens[i]
-				ins[token] = append(ins[token], key)
+				insert[token] = append(insert[token], key)
 				i++
 			default:
-				j++
+				r++
 				i++
 			}
 		}
-		for j < len(temp) {
-			token := temp[j]
-			del[token] = append(del[token], key)
-			j++
+		for r < len(temp) {
+			token := temp[r]
+			remove[token] = append(remove[token], key)
+			r++
 		}
 		for i < len(tokens) {
 			token := tokens[i]
-			ins[token] = append(ins[token], key)
+			insert[token] = append(insert[token], key)
 			i++
 		}
 	}
@@ -75,7 +75,7 @@ func (i *Index) Update() {
 		}
 	}
 	tokenDocs := make(map[int][]int)
-	for token, docs := range del {
+	for token, docs := range remove {
 		temp, ok := tokenDocs[token]
 		if !ok {
 			temp = append(temp, i.tokenDocs[token]...)
@@ -84,7 +84,7 @@ func (i *Index) Update() {
 		temp = arrays.Except(temp, docs)
 		tokenDocs[token] = temp
 	}
-	for token, docs := range ins {
+	for token, docs := range insert {
 		temp, ok := tokenDocs[token]
 		if !ok {
 			temp = append(temp, i.tokenDocs[token]...)
