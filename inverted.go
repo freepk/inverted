@@ -19,89 +19,89 @@ func NewIndex() *Index {
 		tokenItems:    make(map[int][]int)}
 }
 
-func (s *Index) Append(item int, tokens []int) {
-	s.updItemTokens[item] = tokens
+func (i *Index) Append(item int, tokens []int) {
+	i.updItemTokens[item] = tokens
 }
 
-func (s *Index) Item(item int) []int {
-	return s.itemTokens[item]
+func (i *Index) Item(item int) []int {
+	return i.itemTokens[item]
 }
 
-func (s *Index) Items(token int) []int {
-	return s.tokenItems[token]
+func (i *Index) Items(token int) []int {
+	return i.tokenItems[token]
 }
 
-func (s *Index) update() {
-	var ins, del, updItemTokens, updTokenItems map[int][]int
-	var item, token, n, c int
-	var newList, curList []int
+func (i *Index) update() {
+	var inserted, deleted, itemTokens, tokenItems map[int][]int
+	var item, token, u, c int
+	var update, current []int
 	var ok bool
 
-	del = make(map[int][]int)
-	ins = make(map[int][]int)
-	updItemTokens, s.updItemTokens = s.updItemTokens, make(map[int][]int)
-	for item, newList = range updItemTokens {
-		sort.Ints(newList)
-		newList = arrays.Distinct(newList)
-		updItemTokens[item] = newList
-		curList = s.itemTokens[item]
-		n = 0
+	deleted = make(map[int][]int)
+	inserted = make(map[int][]int)
+	itemTokens, i.updItemTokens = i.updItemTokens, make(map[int][]int)
+	for item, update = range itemTokens {
+		sort.Ints(update)
+		update = arrays.Distinct(update)
+		itemTokens[item] = update
+		current = i.itemTokens[item]
+		u = 0
 		c = 0
-		for (n < len(newList)) && (c < len(curList)) {
+		for (u < len(update)) && (c < len(current)) {
 			switch {
-			case curList[c] < newList[n]:
-				token = curList[c]
-				del[token] = append(del[token], item)
+			case current[c] < update[u]:
+				token = current[c]
+				deleted[token] = append(deleted[token], item)
 				c++
-			case curList[c] > newList[n]:
-				token = newList[n]
-				ins[token] = append(ins[token], item)
-				n++
+			case current[c] > update[u]:
+				token = update[u]
+				inserted[token] = append(inserted[token], item)
+				u++
 			default:
 				c++
-				n++
+				u++
 			}
 		}
-		for c < len(curList) {
-			token = curList[c]
-			del[token] = append(del[token], item)
+		for c < len(current) {
+			token = current[c]
+			deleted[token] = append(deleted[token], item)
 			c++
 		}
-		for n < len(newList) {
-			token = newList[n]
-			ins[token] = append(ins[token], item)
-			n++
+		for u < len(update) {
+			token = update[u]
+			inserted[token] = append(inserted[token], item)
+			u++
 		}
 	}
-	for item, curList = range s.itemTokens {
-		if _, ok = updItemTokens[item]; !ok {
-			updItemTokens[item] = curList
+	for item, current = range i.itemTokens {
+		if _, ok = itemTokens[item]; !ok {
+			itemTokens[item] = current
 		}
 	}
-	updTokenItems = make(map[int][]int)
-	for token, newList = range del {
-		curList, ok = updTokenItems[token]
+	tokenItems = make(map[int][]int)
+	for token, update = range deleted {
+		current, ok = tokenItems[token]
 		if !ok {
-			curList = append(curList, s.tokenItems[token]...)
+			current = append(current, i.tokenItems[token]...)
 		}
-		sort.Ints(newList)
-		curList = arrays.Except(curList, newList)
-		updTokenItems[token] = curList
+		sort.Ints(update)
+		current = arrays.Except(current, update)
+		tokenItems[token] = current
 	}
-	for token, newList = range ins {
-		curList, ok = updTokenItems[token]
+	for token, update = range inserted {
+		current, ok = tokenItems[token]
 		if !ok {
-			curList = append(curList, s.tokenItems[token]...)
+			current = append(current, i.tokenItems[token]...)
 		}
-		curList = append(curList, newList...)
-		sort.Ints(curList)
-		updTokenItems[token] = curList
+		current = append(current, update...)
+		sort.Ints(current)
+		tokenItems[token] = current
 	}
-	for token, curList = range s.tokenItems {
-		if _, ok = updTokenItems[token]; !ok {
-			updTokenItems[token] = curList
+	for token, current = range i.tokenItems {
+		if _, ok = tokenItems[token]; !ok {
+			tokenItems[token] = current
 		}
 	}
-	s.itemTokens = updItemTokens
-	s.tokenItems = updTokenItems
+	i.itemTokens = itemTokens
+	i.tokenItems = tokenItems
 }
