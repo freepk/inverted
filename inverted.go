@@ -1,134 +1,107 @@
 package inverted
 
 import (
-	"encoding/gob"
-	"io"
-	"os"
+	"sort"
 
-	"github.com/freepk/radix"
+	"github.com/freepk/arrays"
 )
-
-const (
-	smallIcebergSize = 1024
-)
-
-type iceberg struct {
-	top  []int
-	body []int
-}
-
-func newIceberg(body []int) *iceberg {
-	if body == nil {
-		body = make([]int, 0, smallIcebergSize)
-	}
-	return &iceberg{
-		top:  body,
-		body: body}
-}
-
-func (i *iceberg) visible() bool {
-	return len(i.top) == len(i.body)
-}
-
-func (i *iceberg) show() {
-	if i.visible() {
-		return
-	}
-	size := len(i.body)
-	buff := make([]int, size)
-	radix.Ints(i.body, buff, size)
-	i.top = i.body
-}
-
-func (i *iceberg) append(value int) {
-	i.body = append(i.body, value)
-}
-
-func (i *iceberg) items() []int {
-	i.show()
-	return i.top
-}
 
 type Index struct {
-	tokens map[int]*iceberg
+	itemTokens    map[int][]int
+	updItemTokens map[int][]int
+	tokenItems    map[int][]int
 }
 
 func NewIndex() *Index {
-	return &Index{tokens: make(map[int]*iceberg)}
+	return &Index{
+		itemTokens:    make(map[int][]int),
+		updItemTokens: make(map[int][]int),
+		tokenItems:    make(map[int][]int)}
 }
 
-func (x *Index) Append(key int, tokens []int) {
-	size := len(tokens)
-	for i := 0; i < size; i++ {
-		items, ok := x.tokens[tokens[i]]
+func (s *Index) Append(item int, tokens []int) {
+	s.updItemTokens[item] = tokens
+}
+
+func (s *Index) Item(item int) []int {
+	return s.itemTokens[item]
+}
+
+func (s *Index) Items(token int) []int {
+	return s.tokenItems[token]
+}
+
+func (s *Index) update() {
+	var ins, del, updItemTokens, updTokenItems map[int][]int
+	var item, token, n, c int
+	var newList, curList []int
+	var ok bool
+
+	del = make(map[int][]int)
+	ins = make(map[int][]int)
+	updItemTokens, s.updItemTokens = s.updItemTokens, make(map[int][]int)
+	for item, newList = range updItemTokens {
+		sort.Ints(newList)
+		newList = arrays.Distinct(newList)
+		updItemTokens[item] = newList
+		curList = s.itemTokens[item]
+		n = 0
+		c = 0
+		for (n < len(newList)) && (c < len(curList)) {
+			switch {
+			case curList[c] < newList[n]:
+				token = curList[c]
+				del[token] = append(del[token], item)
+				c++
+			case curList[c] > newList[n]:
+				token = newList[n]
+				ins[token] = append(ins[token], item)
+				n++
+			default:
+				c++
+				n++
+			}
+		}
+		for c < len(curList) {
+			token = curList[c]
+			del[token] = append(del[token], item)
+			c++
+		}
+		for n < len(newList) {
+			token = newList[n]
+			ins[token] = append(ins[token], item)
+			n++
+		}
+	}
+	for item, curList = range s.itemTokens {
+		if _, ok = updItemTokens[item]; !ok {
+			updItemTokens[item] = curList
+		}
+	}
+	updTokenItems = make(map[int][]int)
+	for token, newList = range del {
+		curList, ok = updTokenItems[token]
 		if !ok {
-			items = newIceberg([]int{})
-			x.tokens[tokens[i]] = items
+			curList = append(curList, s.tokenItems[token]...)
 		}
-		items.append(key)
+		sort.Ints(newList)
+		curList = arrays.Except(curList, newList)
+		updTokenItems[token] = curList
 	}
-}
-
-func (x *Index) Items(token int) []int {
-	items, ok := x.tokens[token]
-	if !ok {
-		return []int{}
-	}
-	return items.items()
-}
-
-func (x *Index) Tokens() []int {
-	tokens := make([]int, 0, len(x.tokens))
-	for token := range x.tokens {
-		tokens = append(tokens, token)
-	}
-	return tokens
-}
-
-func (x *Index) Dump(path string) error {
-	file, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	enc := gob.NewEncoder(file)
-	for token, items := range x.tokens {
-		err = enc.Encode(token)
-		if err != nil {
-			return err
+	for token, newList = range ins {
+		curList, ok = updTokenItems[token]
+		if !ok {
+			curList = append(curList, s.tokenItems[token]...)
 		}
-		err = enc.Encode(items.items())
-		if err != nil {
-			return err
+		curList = append(curList, newList...)
+		sort.Ints(curList)
+		updTokenItems[token] = curList
+	}
+	for token, curList = range s.tokenItems {
+		if _, ok = updTokenItems[token]; !ok {
+			updTokenItems[token] = curList
 		}
 	}
-	return nil
-}
-
-func (x *Index) Restore(path string) error {
-	file, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	dec := gob.NewDecoder(file)
-	tokens := make(map[int]*iceberg)
-	for {
-		token := 0
-		items := []int{}
-		err = dec.Decode(&token)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-		err = dec.Decode(&items)
-		if err != nil {
-			return err
-		}
-		tokens[token] = newIceberg(items)
-	}
-	x.tokens = tokens
-	return nil
+	s.itemTokens = updItemTokens
+	s.tokenItems = updTokenItems
 }
