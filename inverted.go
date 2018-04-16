@@ -7,101 +7,97 @@ import (
 )
 
 type Index struct {
-	itemTokens    map[int][]int
-	updItemTokens map[int][]int
-	tokenItems    map[int][]int
+	docTokens    map[int][]int
+	tokenDocs    map[int][]int
+	newDocTokens map[int][]int
 }
 
 func NewIndex() *Index {
 	return &Index{
-		itemTokens:    make(map[int][]int),
-		updItemTokens: make(map[int][]int),
-		tokenItems:    make(map[int][]int)}
+		docTokens:    make(map[int][]int),
+		tokenDocs:    make(map[int][]int),
+		newDocTokens: make(map[int][]int)}
 }
 
-func (i *Index) Append(item int, tokens []int) {
-	i.updItemTokens[item] = tokens
+func (i *Index) Append(key int, tokens []int) {
+	i.newDocTokens[key] = tokens
 }
 
-func (i *Index) Item(key int) []int {
-	return i.itemTokens[key]
+func (i *Index) Doc(key int) []int {
+	return i.docTokens[key]
 }
 
-func (i *Index) Items(token int) []int {
-	return i.tokenItems[token]
+func (i *Index) Docs(token int) []int {
+	return i.tokenDocs[token]
 }
 
 func (i *Index) Update() {
-	i.update()
-}
-
-func (i *Index) update() {
-	deleted := make(map[int][]int)
-	inserted := make(map[int][]int)
-	itemTokens := i.updItemTokens
-	i.updItemTokens = make(map[int][]int)
-	for key, update := range itemTokens {
-		sort.Ints(update)
-		update = arrays.Distinct(update)
-		itemTokens[key] = update
-		current := i.itemTokens[key]
-		u := 0
-		c := 0
-		for (u < len(update)) && (c < len(current)) {
+	del := make(map[int][]int)
+	ins := make(map[int][]int)
+	docTokens := i.newDocTokens
+	i.newDocTokens = make(map[int][]int)
+	for key, tokens := range docTokens {
+		sort.Ints(tokens)
+		tokens = arrays.Distinct(tokens)
+		docTokens[key] = tokens
+		temp := i.docTokens[key]
+		i := 0
+		j := 0
+		for (i < len(tokens)) && (j < len(temp)) {
 			switch {
-			case current[c] < update[u]:
-				token := current[c]
-				deleted[token] = append(deleted[token], key)
-				c++
-			case current[c] > update[u]:
-				token := update[u]
-				inserted[token] = append(inserted[token], key)
-				u++
+			case temp[j] < tokens[i]:
+				token := temp[j]
+				del[token] = append(del[token], key)
+				j++
+			case temp[j] > tokens[i]:
+				token := tokens[i]
+				ins[token] = append(ins[token], key)
+				i++
 			default:
-				c++
-				u++
+				j++
+				i++
 			}
 		}
-		for c < len(current) {
-			token := current[c]
-			deleted[token] = append(deleted[token], key)
-			c++
+		for j < len(temp) {
+			token := temp[j]
+			del[token] = append(del[token], key)
+			j++
 		}
-		for u < len(update) {
-			token := update[u]
-			inserted[token] = append(inserted[token], key)
-			u++
-		}
-	}
-	for key, current := range i.itemTokens {
-		if _, ok := itemTokens[key]; !ok {
-			itemTokens[key] = current
+		for i < len(tokens) {
+			token := tokens[i]
+			ins[token] = append(ins[token], key)
+			i++
 		}
 	}
-	tokenItems := make(map[int][]int)
-	for token, update := range deleted {
-		current, ok := tokenItems[token]
+	for key, tokens := range i.docTokens {
+		if _, ok := docTokens[key]; !ok {
+			docTokens[key] = tokens
+		}
+	}
+	tokenDocs := make(map[int][]int)
+	for token, docs := range del {
+		temp, ok := tokenDocs[token]
 		if !ok {
-			current = append(current, i.tokenItems[token]...)
+			temp = append(temp, i.tokenDocs[token]...)
 		}
-		sort.Ints(update)
-		current = arrays.Except(current, update)
-		tokenItems[token] = current
+		sort.Ints(docs)
+		temp = arrays.Except(temp, docs)
+		tokenDocs[token] = temp
 	}
-	for token, update := range inserted {
-		current, ok := tokenItems[token]
+	for token, docs := range ins {
+		temp, ok := tokenDocs[token]
 		if !ok {
-			current = append(current, i.tokenItems[token]...)
+			temp = append(temp, i.tokenDocs[token]...)
 		}
-		current = append(current, update...)
-		sort.Ints(current)
-		tokenItems[token] = current
+		temp = append(temp, docs...)
+		sort.Ints(temp)
+		tokenDocs[token] = temp
 	}
-	for token, current := range i.tokenItems {
-		if _, ok := tokenItems[token]; !ok {
-			tokenItems[token] = current
+	for token, docs := range i.tokenDocs {
+		if _, ok := tokenDocs[token]; !ok {
+			tokenDocs[token] = docs
 		}
 	}
-	i.itemTokens = itemTokens
-	i.tokenItems = tokenItems
+	i.docTokens = docTokens
+	i.tokenDocs = tokenDocs
 }
