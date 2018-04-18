@@ -31,6 +31,14 @@ func (i *Index) Docs(tokenId int) []int {
 	return i.tokenDocs[tokenId]
 }
 
+func copyNotExists(dst, src map[int][]int) {
+	for k, v := range src {
+		if _, ok := dst[k]; !ok {
+			dst[k] = v
+		}
+	}
+}
+
 func (i *Index) Update() {
 	docTokens := i.newDocTokens
 	i.newDocTokens = make(map[int][]int)
@@ -69,11 +77,7 @@ func (i *Index) Update() {
 			ins++
 		}
 	}
-	for docId, tokenIds := range i.docTokens {
-		if _, ok := docTokens[docId]; !ok {
-			docTokens[docId] = tokenIds
-		}
-	}
+	copyNotExists(docTokens, i.docTokens)
 	tokenDocs := make(map[int][]int)
 	for tokenId, docIds := range deleteIds {
 		temp, ok := tokenDocs[tokenId]
@@ -93,11 +97,7 @@ func (i *Index) Update() {
 		sort.Ints(temp)
 		tokenDocs[tokenId] = temp
 	}
-	for tokenIds, docIds := range i.tokenDocs {
-		if _, ok := tokenDocs[tokenIds]; !ok {
-			tokenDocs[tokenIds] = docIds
-		}
-	}
+	copyNotExists(tokenDocs, i.tokenDocs)
 	i.docTokens = docTokens
 	i.tokenDocs = tokenDocs
 }
