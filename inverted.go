@@ -19,83 +19,83 @@ func NewIndex() *Index {
 		newDocTokens: make(map[int][]int)}
 }
 
-func (i *Index) Append(key int, tokens []int) {
-	i.newDocTokens[key] = tokens
+func (i *Index) Append(docId int, tokenIds []int) {
+	i.newDocTokens[docId] = tokenIds
 }
 
-func (i *Index) Doc(key int) []int {
-	return i.docTokens[key]
+func (i *Index) Doc(docId int) []int {
+	return i.docTokens[docId]
 }
 
-func (i *Index) Docs(token int) []int {
-	return i.tokenDocs[token]
+func (i *Index) Docs(tokenId int) []int {
+	return i.tokenDocs[tokenId]
 }
 
 func (i *Index) Update() {
 	docTokens := i.newDocTokens
 	i.newDocTokens = make(map[int][]int)
-	remove := make(map[int][]int)
-	insert := make(map[int][]int)
-	for key, tokens := range docTokens {
-		sort.Ints(tokens)
-		tokens = arrays.Distinct(tokens)
-		docTokens[key] = tokens
-		temp := i.docTokens[key]
-		i := 0
-		r := 0
-		for (i < len(tokens)) && (r < len(temp)) {
+	deleteIds := make(map[int][]int)
+	insertIds := make(map[int][]int)
+	for docId, newTokenIds := range docTokens {
+		sort.Ints(newTokenIds)
+		newTokenIds = arrays.Distinct(newTokenIds)
+		docTokens[docId] = newTokenIds
+		oldTokenIds := i.docTokens[docId]
+		ins := 0
+		del := 0
+		for (ins < len(newTokenIds)) && (del < len(oldTokenIds)) {
 			switch {
-			case temp[r] < tokens[i]:
-				token := temp[r]
-				remove[token] = append(remove[token], key)
-				r++
-			case temp[r] > tokens[i]:
-				token := tokens[i]
-				insert[token] = append(insert[token], key)
-				i++
+			case oldTokenIds[del] < newTokenIds[ins]:
+				tokenId := oldTokenIds[del]
+				deleteIds[tokenId] = append(deleteIds[tokenId], docId)
+				del++
+			case oldTokenIds[del] > newTokenIds[ins]:
+				tokenId := newTokenIds[ins]
+				insertIds[tokenId] = append(insertIds[tokenId], docId)
+				ins++
 			default:
-				r++
-				i++
+				del++
+				ins++
 			}
 		}
-		for r < len(temp) {
-			token := temp[r]
-			remove[token] = append(remove[token], key)
-			r++
+		for del < len(oldTokenIds) {
+			tokenId := oldTokenIds[del]
+			deleteIds[tokenId] = append(deleteIds[tokenId], docId)
+			del++
 		}
-		for i < len(tokens) {
-			token := tokens[i]
-			insert[token] = append(insert[token], key)
-			i++
+		for ins < len(newTokenIds) {
+			tokenId := newTokenIds[ins]
+			insertIds[tokenId] = append(insertIds[tokenId], docId)
+			ins++
 		}
 	}
-	for key, tokens := range i.docTokens {
-		if _, ok := docTokens[key]; !ok {
-			docTokens[key] = tokens
+	for docId, tokenIds := range i.docTokens {
+		if _, ok := docTokens[docId]; !ok {
+			docTokens[docId] = tokenIds
 		}
 	}
 	tokenDocs := make(map[int][]int)
-	for token, docs := range remove {
-		temp, ok := tokenDocs[token]
+	for tokenId, docIds := range deleteIds {
+		temp, ok := tokenDocs[tokenId]
 		if !ok {
-			temp = append(temp, i.tokenDocs[token]...)
+			temp = append(temp, i.tokenDocs[tokenId]...)
 		}
-		sort.Ints(docs)
-		temp = arrays.Except(temp, docs)
-		tokenDocs[token] = temp
+		sort.Ints(docIds)
+		temp = arrays.Except(temp, docIds)
+		tokenDocs[tokenId] = temp
 	}
-	for token, docs := range insert {
-		temp, ok := tokenDocs[token]
+	for tokenId, docIds := range insertIds {
+		temp, ok := tokenDocs[tokenId]
 		if !ok {
-			temp = append(temp, i.tokenDocs[token]...)
+			temp = append(temp, i.tokenDocs[tokenId]...)
 		}
-		temp = append(temp, docs...)
+		temp = append(temp, docIds...)
 		sort.Ints(temp)
-		tokenDocs[token] = temp
+		tokenDocs[tokenId] = temp
 	}
-	for token, docs := range i.tokenDocs {
-		if _, ok := tokenDocs[token]; !ok {
-			tokenDocs[token] = docs
+	for tokenIds, docIds := range i.tokenDocs {
+		if _, ok := tokenDocs[tokenIds]; !ok {
+			tokenDocs[tokenIds] = docIds
 		}
 	}
 	i.docTokens = docTokens
