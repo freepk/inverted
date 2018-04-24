@@ -7,31 +7,31 @@ import (
 )
 
 type Index struct {
-	docToks    map[int][]int
-	tokDocs    map[int][]int
-	newDocToks map[int][]int
+	docs map[int][]int
+	toks map[int][]int
+	upds map[int][]int
 }
 
 func NewIndex() *Index {
 	return &Index{
-		docToks:    make(map[int][]int),
-		tokDocs:    make(map[int][]int),
-		newDocToks: make(map[int][]int)}
+		docs: make(map[int][]int),
+		toks: make(map[int][]int),
+		upds: make(map[int][]int)}
 }
 
-func (i *Index) Append(doc int, toks []int) {
-	i.newDocToks[doc] = toks
+func (i *Index) Set(doc int, toks []int) {
+	i.upds[doc] = toks
 }
 
-func (i *Index) Doc(doc int) []int {
-	return i.docToks[doc]
+func (i *Index) Toks(doc int) []int {
+	return i.docs[doc]
 }
 
 func (i *Index) Docs(tok int) []int {
-	return i.tokDocs[tok]
+	return i.toks[tok]
 }
 
-func copyMap(d, s map[int][]int) {
+func merge(d, s map[int][]int) {
 	for k, v := range s {
 		if _, ok := d[k]; !ok {
 			d[k] = v
@@ -40,64 +40,65 @@ func copyMap(d, s map[int][]int) {
 }
 
 func (i *Index) Update() {
-	docToks := i.newDocToks
-	i.newDocToks = make(map[int][]int)
-	delTokDocs := make(map[int][]int)
-	insTokDocs := make(map[int][]int)
-	for doc, newToks := range docToks {
-		sort.Ints(newToks)
-		newToks = arrays.Distinct(newToks)
-		docToks[doc] = newToks
-		oldToks := i.docToks[doc]
-		ins := 0
-		del := 0
-		for (ins < len(newToks)) && (del < len(oldToks)) {
-			switch {
-			case oldToks[del] < newToks[ins]:
-				tok := oldToks[del]
-				delTokDocs[tok] = append(delTokDocs[tok], doc)
-				del++
-			case oldToks[del] > newToks[ins]:
-				tok := newToks[ins]
-				insTokDocs[tok] = append(insTokDocs[tok], doc)
-				ins++
-			default:
-				del++
-				ins++
+	docs := i.upds
+	i.upds = make(map[int][]int)
+	ptmp := make(map[int][]int)
+	ntmp := make(map[int][]int)
+	for doc, ntoks := range docs {
+		sort.Ints(ntoks)
+		ntoks = arrays.Distinct(ntoks)
+		docs[doc] = ntoks
+		ptoks := i.docs[doc]
+		n := 0
+		p := 0
+		for (n < len(ntoks)) && (p < len(ptoks)) {
+			ptok := ptoks[p]
+			ntok := ntoks[n]
+			if ptok < ntok {
+				ptmp[ptok] = append(ptmp[ptok], doc)
+				p++
+				continue
 			}
+			if ptok > ntok {
+				ntmp[ntok] = append(ntmp[ntok], doc)
+				n++
+				continue
+			}
+			p++
+			n++
 		}
-		for del < len(oldToks) {
-			tok := oldToks[del]
-			delTokDocs[tok] = append(delTokDocs[tok], doc)
-			del++
+		for p < len(ptoks) {
+			ptok := ptoks[p]
+			ptmp[ptok] = append(ptmp[ptok], doc)
+			p++
 		}
-		for ins < len(newToks) {
-			tok := newToks[ins]
-			insTokDocs[tok] = append(insTokDocs[tok], doc)
-			ins++
+		for n < len(ntoks) {
+			ntok := ntoks[n]
+			ntmp[ntok] = append(ntmp[ntok], doc)
+			n++
 		}
 	}
-	copyMap(docToks, i.docToks)
-	tokDocs := make(map[int][]int)
-	for tok, docs := range delTokDocs {
-		temp, ok := tokDocs[tok]
+	merge(docs, i.docs)
+	toks := make(map[int][]int)
+	for tok, docs := range ptmp {
+		tmp, ok := toks[tok]
 		if !ok {
-			temp = append(temp, i.tokDocs[tok]...)
+			tmp = append(tmp, i.toks[tok]...)
 		}
 		sort.Ints(docs)
-		temp = arrays.Except(temp, docs)
-		tokDocs[tok] = temp
+		tmp = arrays.Except(tmp, docs)
+		toks[tok] = tmp
 	}
-	for tok, docs := range insTokDocs {
-		temp, ok := tokDocs[tok]
+	for tok, docs := range ntmp {
+		tmp, ok := toks[tok]
 		if !ok {
-			temp = append(temp, i.tokDocs[tok]...)
+			tmp = append(tmp, i.toks[tok]...)
 		}
-		temp = append(temp, docs...)
-		sort.Ints(temp)
-		tokDocs[tok] = temp
+		tmp = append(tmp, docs...)
+		sort.Ints(tmp)
+		toks[tok] = tmp
 	}
-	copyMap(tokDocs, i.tokDocs)
-	i.docToks = docToks
-	i.tokDocs = tokDocs
+	merge(toks, i.toks)
+	i.docs = docs
+	i.toks = toks
 }
