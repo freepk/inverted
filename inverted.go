@@ -6,7 +6,13 @@ type Document struct {
 	Fields [][]int
 }
 
-type DocumentIter interface {
+func (doc *Document) Reset() {
+	doc.ID = 0
+	doc.Parts = doc.Parts[:0]
+	doc.Fields = doc.Fields[:0]
+}
+
+type Documenter interface {
 	Reset()
 	Next() (*Document, bool)
 }
@@ -96,11 +102,11 @@ func (p *Part) Len() int {
 }
 
 type Inverted struct {
-	iter  DocumentIter
-	parts []Part
+	iter Documenter
+	parts  []Part
 }
 
-func NewInverted(iter DocumentIter) *Inverted {
+func NewInverted(iter Documenter) *Inverted {
 	return &Inverted{iter: iter}
 }
 
