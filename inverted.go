@@ -9,10 +9,12 @@ type Document struct {
 func (doc *Document) Reset() {
 	doc.ID = 0
 	doc.Parts = doc.Parts[:0]
-	doc.Fields = doc.Fields[:0]
+	for f := range doc.Fields {
+		doc.Fields[f] = doc.Fields[f][:0]
+	}
 }
 
-type Documenter interface {
+type Processor interface {
 	Reset()
 	Next() (*Document, bool)
 }
@@ -102,12 +104,12 @@ func (p *Part) Len() int {
 }
 
 type Inverted struct {
-	iter Documenter
-	parts  []Part
+	proc  Processor
+	parts []Part
 }
 
-func NewInverted(iter Documenter) *Inverted {
-	return &Inverted{iter: iter}
+func NewInverted(proc Processor) *Inverted {
+	return &Inverted{proc: proc}
 }
 
 func (inv *Inverted) reset() {
@@ -135,9 +137,9 @@ func (inv *Inverted) Len() int {
 }
 
 func (inv *Inverted) walk(do func(*Token, Ref)) {
-	inv.iter.Reset()
+	inv.proc.Reset()
 	for {
-		doc, ok := inv.iter.Next()
+		doc, ok := inv.proc.Next()
 		if !ok {
 			break
 		}
