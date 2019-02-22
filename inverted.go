@@ -162,7 +162,7 @@ func (inv *Inverted) Rebuild() {
 	inv.walk(func(t *Token, r Ref) {
 		if t.count > cap(t.refs) {
 			n := t.count * 105 / 100
-			t.refs = make([]Ref, n)
+			t.refs = make([]Ref, 0, n)
 		}
 		t.refs = append(t.refs, r)
 	})
